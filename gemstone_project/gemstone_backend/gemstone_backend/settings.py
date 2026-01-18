@@ -118,10 +118,26 @@ REST_FRAMEWORK = {
     ],
 }
 
-# CORS settings
-CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
+# --- CORS & CSRF Settings ---
 CORS_ALLOW_CREDENTIALS = True
+
+# 1. Get origins from Environment Variables (CORS)
+CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
+
+# 2. Get origins from Environment Variables (CSRF)
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
+
+# 3. Automatically add the Railway URL if in Production
+if not DEBUG:
+    # Ensure the Railway URL is in both lists
+    railway_url = "https://peaceful-solace-production-3783.up.railway.app"
+    
+    if railway_url not in CSRF_TRUSTED_ORIGINS:
+        CSRF_TRUSTED_ORIGINS.append(railway_url)
+    
+    if railway_url not in CORS_ALLOWED_ORIGINS:
+        CORS_ALLOWED_ORIGINS.append(railway_url)
+        
 
 SESSION_COOKIE_SAMESITE = 'Lax'
 SESSION_COOKIE_HTTPONLY = True
