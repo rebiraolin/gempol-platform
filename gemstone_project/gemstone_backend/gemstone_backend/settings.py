@@ -19,6 +19,8 @@ DEBUG = os.getenv("DEBUG", "True") == "True"
 ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
 if not DEBUG:
     ALLOWED_HOSTS.append(".up.railway.app")
+    # Add your specific railway domain for extra safety
+    ALLOWED_HOSTS.append("peaceful-solace-production-3783.up.railway.app")
 
 
 # --- APPLICATION DEFINITION ---
@@ -71,7 +73,6 @@ WSGI_APPLICATION = "gemstone_backend.wsgi.application"
 
 
 # --- DATABASE ---
-# This fixes the "sslmode" error by only applying SSL options to PostgreSQL
 DATABASES = {
     "default": dj_database_url.config(
         default=f"sqlite:///{BASE_DIR / 'db.sqlite3'}",
@@ -79,10 +80,8 @@ DATABASES = {
     )
 }
 
-# Apply Postgres-specific SSL settings only when a DATABASE_URL is present (Railway)
 if os.getenv("DATABASE_URL"):
     DATABASES["default"] = dj_database_url.config(conn_max_age=600)
-    # Railway Postgres requires SSL
     if not DEBUG:
         DATABASES["default"]["OPTIONS"] = {"sslmode": "require"}
 
@@ -104,7 +103,6 @@ AUTH_PASSWORD_VALIDATORS = [
 # --- STATIC FILES ---
 STATIC_URL = "static/"
 STATIC_ROOT = BASE_DIR / "staticfiles"
-# WhiteNoise storage for efficient production serving
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 
@@ -121,27 +119,32 @@ REST_FRAMEWORK = {
 # --- CORS & CSRF Settings ---
 CORS_ALLOW_CREDENTIALS = True
 
-# 1. Get origins from Environment Variables (CORS)
 CORS_ALLOWED_ORIGINS = os.getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
-
-# 2. Get origins from Environment Variables (CSRF)
 CSRF_TRUSTED_ORIGINS = os.getenv("CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://localhost:5174").split(",")
 
-# 3. Automatically add the Railway URL if in Production
 if not DEBUG:
-    # Ensure the Railway URL is in both lists
     railway_url = "https://peaceful-solace-production-3783.up.railway.app"
+    vercel_url = "https://gempol-platform.vercel.app"
     
-    if railway_url not in CSRF_TRUSTED_ORIGINS:
-        CSRF_TRUSTED_ORIGINS.append(railway_url)
-    
-    if railway_url not in CORS_ALLOWED_ORIGINS:
-        CORS_ALLOWED_ORIGINS.append(railway_url)
-        
+    for url in [railway_url, vercel_url]:
+        if url not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(url)
+        if url not in CORS_ALLOWED_ORIGINS:
+            CORS_ALLOWED_ORIGINS.append(url)
 
-SESSION_COOKIE_SAMESITE = 'Lax'
+# --- PRODUCTION COOKIE SECURITY ---
+# When Vercel (frontend) talks to Railway (backend), we must allow cross-site cookies
+if not DEBUG:
+    SESSION_COOKIE_SAMESITE = 'None'
+    CSRF_COOKIE_SAMESITE = 'None'
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+else:
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    SESSION_COOKIE_SECURE = False
+    CSRF_COOKIE_SECURE = False
+
 SESSION_COOKIE_HTTPONLY = True
-SESSION_COOKIE_SECURE = not DEBUG
 
 
 # --- INTERNATIONALIZATION ---
